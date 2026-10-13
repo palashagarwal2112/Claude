@@ -26,7 +26,9 @@ class Journal:
     memo: str = ""
     reversal_date: date | None = None
     next_approver: str = ""       # employee internal ID
-    currency: str = ""
+    currency: str = ""            # currency internal ID (or ISO code; resolved via NetSuite)
+    exchange_rate: str = ""
+    accounting_book: str = ""     # accounting book internal ID, or "primary"
     lines: list[Line] = field(default_factory=list)
 
     @property
@@ -43,3 +45,5 @@ class Issue:
     ref: str
     message: str
     severity: str = "error"       # error | warning
+    kind: str = "invalid"         # invalid | missing | ambiguous ; missing/ambiguous need a human answer
+    field: str = ""

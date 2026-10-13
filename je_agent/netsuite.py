@@ -78,6 +78,34 @@ class NetSuiteClient:
         rows = self.suiteql(f"SELECT id FROM {table} WHERE id IN ({','.join(clean)})")
         return {str(r["id"]) for r in rows}
 
+    @staticmethod
+    def _q(s: str) -> str:
+        return str(s).replace("'", "''")
+
+    def find(self, kind: str, text: str) -> list[dict]:
+        """Resolve a name/number/code to candidate internal IDs. kind: account|department|class|location|
+        subsidiary|currency|accountingbook|vendor|employee."""
+        t = self._q(text.strip())
+        like = t.lower().replace("%", "")
+        sql = {
+            "account": f"SELECT id, acctnumber, fullname FROM account WHERE acctnumber = '{t}' OR LOWER(fullname) LIKE '%{like}%'",
+            "department": f"SELECT id, fullname FROM department WHERE LOWER(fullname) LIKE '%{like}%'",
+            "class": f"SELECT id, fullname FROM classification WHERE LOWER(fullname) LIKE '%{like}%'",
+            "location": f"SELECT id, fullname FROM location WHERE LOWER(fullname) LIKE '%{like}%'",
+            "subsidiary": f"SELECT id, fullname, currency FROM subsidiary WHERE LOWER(fullname) LIKE '%{like}%' OR LOWER(name) LIKE '%{like}%'",
+            "currency": f"SELECT id, symbol, name FROM currency WHERE UPPER(symbol) = '{t.upper()}' OR LOWER(name) LIKE '%{like}%'",
+            "accountingbook": f"SELECT id, name, isprimary FROM accountingbook WHERE LOWER(name) LIKE '%{like}%'" if like not in ("primary", "") else "SELECT id, name, isprimary FROM accountingbook WHERE isprimary = 'T'",
+            "vendor": f"SELECT id, entityid, companyname FROM vendor WHERE LOWER(companyname) LIKE '%{like}%' OR LOWER(entityid) LIKE '%{like}%'",
+            "employee": f"SELECT id, entityid FROM employee WHERE LOWER(entityid) LIKE '%{like}%'",
+        }.get(kind)
+        if not sql:
+            raise NetSuiteError(f"unknown lookup kind {kind!r}")
+        return self.suiteql(sql + " FETCH FIRST 15 ROWS ONLY")
+
+    def subsidiary_currency(self, sub_id: str) -> str:
+        rows = self.suiteql(f"SELECT currency FROM subsidiary WHERE id = {int(sub_id)}") if sub_id.isdigit() else []
+        return str(rows[0]["currency"]) if rows else ""
+
     # --- create -----------------------------------------------------------------
     @staticmethod
     def payload(j: Journal, approval_status: str) -> dict:
@@ -98,6 +126,14 @@ class NetSuiteClient:
             "subsidiary": {"id": j.subsidiary}, "approvalStatus": {"id": approval_status},
             "memo": j.memo, "line": {"items": items},
         }
+        if j.currency:
+            body["currency"] = {"id": j.currency}
+        if j.exchange_rate:
+            body["exchangeRate"] = float(j.exchange_rate)
+        if j.accounting_book and j.accounting_book.lower() != "primary":
+            # Book-specific journal. NOTE: verify field names in a sandbox before first production use.
+            body["isBookSpecific"] = True
+            body["accountingBookDetail"] = {"items": [{"accountingBook": {"id": j.accounting_book}}]}
         if j.reversal_date:
             body["reversalDate"] = j.reversal_date.isoformat()
         if j.next_approver:
