@@ -23,9 +23,10 @@ class NetSuiteClient:
         self.client_id = client_id or e("NS_CLIENT_ID", "")
         self.cert_id = cert_id or e("NS_CERT_ID", "")
         self.key_path = key_path or e("NS_PRIVATE_KEY_PATH", "")
+        self.key_pem = e("NS_PRIVATE_KEY", "").replace("\\n", "\n")   # PEM text (alternative to a key file)
         self.alg = alg or e("NS_JWT_ALG", "PS256")
         self.approval_status = str(approval_status or e("NS_APPROVAL_STATUS", "1"))  # 1 = Pending Approval
-        if not all([self.account, self.client_id, self.cert_id, self.key_path]):
+        if not all([self.account, self.client_id, self.cert_id, self.key_pem or self.key_path]):
             raise NetSuiteError("NetSuite credentials are not configured (see .env.example)")
         self.base = f"https://{self.account}.suitetalk.api.netsuite.com/services/rest"
         self._master: dict[str, list[Record]] = {}
@@ -37,8 +38,11 @@ class NetSuiteClient:
         if self._token and time.time() < self._exp - 60:
             return self._token
         now = int(time.time())
-        with open(self.key_path, "rb") as f:
-            key = f.read()
+        if self.key_pem:
+            key = self.key_pem.encode()
+        else:
+            with open(self.key_path, "rb") as f:
+                key = f.read()
         assertion = jwt.encode(
             {"iss": self.client_id, "scope": ["rest_webservices"], "aud": f"{self.base}/auth/oauth2/v1/token",
              "iat": now, "exp": now + 3000},

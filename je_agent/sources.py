@@ -20,10 +20,20 @@ def parse_google_url(source: str) -> tuple[str, str | None]:
     return (m.group(1) if m else source, g.group(1) if g else None)
 
 
+def _sa_info() -> dict | None:
+    """Service-account JSON from GOOGLE_SERVICE_ACCOUNT_JSON (contents) if set, else None (use the file)."""
+    import json
+
+    raw = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON", "").strip()
+    return json.loads(raw) if raw else None
+
+
 def _gspread():
     import gspread
 
-    return gspread.service_account(filename=os.environ["GOOGLE_SERVICE_ACCOUNT_FILE"])
+    info = _sa_info()
+    return gspread.service_account_from_dict(info) if info else \
+        gspread.service_account(filename=os.environ["GOOGLE_SERVICE_ACCOUNT_FILE"])
 
 
 def _drive_download_xlsx(file_id: str) -> bytes:
@@ -31,8 +41,10 @@ def _drive_download_xlsx(file_id: str) -> bytes:
     from google.auth.transport.requests import AuthorizedSession
     from google.oauth2.service_account import Credentials
 
-    creds = Credentials.from_service_account_file(os.environ["GOOGLE_SERVICE_ACCOUNT_FILE"],
-                                                  scopes=["https://www.googleapis.com/auth/drive.readonly"])
+    scopes = ["https://www.googleapis.com/auth/drive.readonly"]
+    info = _sa_info()
+    creds = Credentials.from_service_account_info(info, scopes=scopes) if info else \
+        Credentials.from_service_account_file(os.environ["GOOGLE_SERVICE_ACCOUNT_FILE"], scopes=scopes)
     sess = AuthorizedSession(creds)
     base = f"https://www.googleapis.com/drive/v3/files/{file_id}"
     r = sess.get(base, params={"alt": "media"})
