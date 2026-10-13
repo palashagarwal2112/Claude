@@ -32,9 +32,6 @@ def reconcile(j: Journal, rec: dict, rate_rel_tol: Decimal = Decimal("1e-9")) ->
         want, got = Decimal(j.exchange_rate), Decimal(str(rec["exchangeRate"]))
         if want and abs(got - want) / want > rate_rel_tol:
             rate_diffs.append(f"exchange rate: source {want}, NetSuite saved {got}")
-    for k, v in j.extra_body.items():
-        if _id(rec.get(k)) != _id(v):
-            diffs.append(f"{k}: expected {_id(v)}, saved {_id(rec.get(k))}")
 
     want = Counter((l.account, _amt(l.debit), _amt(l.credit), l.department, l.klass, l.location, l.entity, l.memo)
                    for l in j.lines)

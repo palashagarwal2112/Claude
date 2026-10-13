@@ -41,7 +41,7 @@ TOOLS = [
     {"name": "read_range", "description": "Read rows start_row..end_row (1-based, max 200) of a tab.",
      "input_schema": {"type": "object", "properties": {"source": _s, "tab": _s, "start_row": {"type": "integer"},
                       "end_row": {"type": "integer"}}, "required": ["source", "tab", "start_row", "end_row"]}},
-    {"name": "resolve_source_tab", "description": "Map a ticket's 'Source Tab' value (name or URL with gid) to an exact tab name.",
+    {"name": "resolve_source_tab", "description": "Map a 'Source Tab' hint (tab name, or Google URL with gid) to an exact tab name.",
      "input_schema": {"type": "object", "properties": {"source": _s, "tab_text": _s}, "required": ["source", "tab_text"]}},
     {"name": "load_rates", "description": "Read FX rates (journal currency -> subsidiary base) from a workbook tab.",
      "input_schema": {"type": "object", "properties": {"source": _s, "tab": _s, "header_row": {"type": "integer"},
@@ -94,9 +94,9 @@ def _dispatch(p: Pipeline, name: str, a: dict) -> str:
     }[name]()
 
 
-def run(user_request: str, pipeline: Pipeline, extra_system: str = "", max_turns: int = 40) -> str:
+def run(user_request: str, pipeline: Pipeline, max_turns: int = 40) -> str:
     client = anthropic.Anthropic()
-    system = SYSTEM + ("\n" + extra_system if extra_system else "")
+    system = SYSTEM
     messages = [{"role": "user", "content": user_request}]
     for _ in range(max_turns):
         resp = client.messages.create(model=MODEL, max_tokens=4096, system=system, tools=TOOLS, messages=messages)
@@ -109,8 +109,6 @@ def run(user_request: str, pipeline: Pipeline, extra_system: str = "", max_turns
                 try:
                     out = _dispatch(pipeline, b.name, b.input)
                 except Exception as e:
-                    if type(e).__name__ == "NeedInformation":    # Jira mode: stop the run, ask on the ticket
-                        raise
                     out = f"ERROR: {e}"
                 results.append({"type": "tool_result", "tool_use_id": b.id, "content": str(out)[:20000]})
         messages.append({"role": "user", "content": results})

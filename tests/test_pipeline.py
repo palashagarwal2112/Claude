@@ -223,12 +223,5 @@ def test_posting_period_check():
     assert "No NetSuite accounting period" in p.check_posting_period("Oct 2026")
 
 
-def test_set_requester_adds_custom_body_field():
-    p = ready_pipeline()
-    assert "will be recorded" in p.set_requester("palash.agarwal@redis.com")
-    assert NetSuiteClient.payload(p.journals[0], "1")["custbody_journal_req_by"] == {"id": "77"}
-    assert p.set_requester("nobody@x.com").startswith("UNRESOLVED")
-
-
 def test_agent_dispatch_ask_user_without_human():
     assert _dispatch(Pipeline(), "ask_user", {"questions": ["Which book?"]}).startswith("NO_HUMAN")

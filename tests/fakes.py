@@ -64,10 +64,6 @@ class FakeNS:
     def journal_url(self, iid):
         return f"https://{self.account}.app.netsuite.com/app/accounting/transactions/journal.nl?id={iid}"
 
-    def employee_by_email(self, email):
-        return [{"id": r.id, "entityid": r.name, "email": email} for r in self._m["employee"]
-                if r.code.lower() == email.lower()]
-
     def period(self, name):
         return {"id": "55", "periodname": name, "startdate": "2026-08-01", "enddate": "2026-08-31",
                 "closed": "F", "alllocked": "F"} if name == "Aug 2026" else None

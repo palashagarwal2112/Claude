@@ -88,10 +88,6 @@ class NetSuiteClient:
     def journal_exists(self, external_id: str) -> bool:
         return self.journal_by_external_id(external_id) is not None
 
-    def employee_by_email(self, email: str) -> list[dict]:
-        safe = email.strip().lower().replace("'", "''")
-        return self.suiteql(f"SELECT id, entityid, email FROM employee WHERE LOWER(email) = '{safe}'")
-
     def period(self, name: str) -> dict | None:
         safe = name.replace("'", "''")
         rows = self.suiteql("SELECT id, periodname, startdate, enddate, closed, alllocked FROM accountingperiod "
@@ -165,7 +161,6 @@ class NetSuiteClient:
             body["accountingBookDetail"] = {"items": [{"accountingBook": {"id": j.accounting_book}}]}
         if j.posting_period:
             body["postingPeriod"] = {"id": j.posting_period}
-        body.update(j.extra_body)
         if j.reversal_date:
             body["reversalDate"] = j.reversal_date.isoformat()
         if j.next_approver:

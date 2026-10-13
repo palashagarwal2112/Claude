@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import sys
-import time
 
 from .pipeline import Pipeline
 
@@ -31,35 +30,17 @@ def _netsuite():
 
 
 def main(argv=None) -> int:
-    p = argparse.ArgumentParser(prog="je-agent", description="Create NetSuite journals from any Sheet/Excel workpaper "
-                                "or from a Jira 'Journal Creation Request' ticket")
-    p.add_argument("source", nargs="?", help="Google Sheet URL/ID, .xlsx or .csv (omit when using --jira*)")
-    p.add_argument("--jira", metavar="KEY", help="Run for one Jira ticket, e.g. FS-345")
-    p.add_argument("--jira-once", action="store_true", help="Process every ticket in 'Agent - Start Work' once")
-    p.add_argument("--jira-watch", type=int, metavar="SECONDS", help="Poll for tickets in 'Agent - Start Work'")
-    p.add_argument("--force", action="store_true", help="With --jira: run even if the ticket is not in 'Agent - Start Work'")
+    p = argparse.ArgumentParser(prog="je-agent", description="Create NetSuite journals from any Sheet/Excel workpaper")
+    p.add_argument("source", help="Google Sheet URL/ID, .xlsx or .csv")
+    p.add_argument("--external-id-prefix", default="", help="Prefix for NetSuite external IDs (keeps re-runs idempotent)")
     p.add_argument("--instructions", default="", help="Extra context for the agent (e.g. 'lines are on tab Allocation')")
     p.add_argument("--dry-run", action="store_true", help="Read, validate and report only; never post")
     p.add_argument("--no-agent", action="store_true", help="Skip Claude; auto-match headers in the first tab")
     a = p.parse_args(argv)
     ns = _netsuite()
 
-    if a.jira or a.jira_once or a.jira_watch:
-        from .agent import run
-        from .jira import JiraClient
-        from .workflow import pending, run_ticket
-        jira = JiraClient()
-        while True:
-            keys = [a.jira] if a.jira else pending(jira)
-            for k in keys:
-                print(run_ticket(k, jira, ns, run, force=a.force))
-            if not a.jira_watch:
-                return 0
-            time.sleep(a.jira_watch)
-
-    if not a.source:
-        p.error("give a workbook source or use --jira KEY")
     pipe = Pipeline(ns=ns, confirm=_confirm, ask=_ask)
+    pipe.external_id_prefix = a.external_id_prefix
     if a.no_agent:
         from .parse import auto_spec
         tab, grid = next(iter(pipe._book(a.source).items()))

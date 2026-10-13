@@ -27,8 +27,7 @@ class Pipeline:
         self.ask = ask                # callable(questions: list[str]) -> str : human clarification
         self.journals: list[Journal] = []
         self.issues: list[Issue] = []
-        self.external_id_prefix = ""  # e.g. "JIRA-811276" so ids are stable and traceable to the ticket
-        self.extra_body: dict = {}    # applied to every journal, e.g. custbody_journal_req_by
+        self.external_id_prefix = ""  # optional prefix for NetSuite external IDs, e.g. "AUG26-ACCR"
         self.posting_period_label = ""
         self.rates: dict[str, Decimal] = {}
         self.overrides: dict[tuple[str, str], str] = {}     # (kind, normalised raw) -> internal id, user confirmed
@@ -58,7 +57,7 @@ class Pipeline:
         return render_grid(wb[tab], start_row, min(end_row, start_row + 200))
 
     def resolve_source_tab(self, source: str, tab_text: str) -> str:
-        """Turn a ticket's 'Source Tab' value (tab name or URL with gid) into an exact tab name, or say why not."""
+        """Turn a 'Source Tab' hint (tab name, or Google URL with gid) into an exact tab name, or say why not."""
         wb = self._book(source)
         t = (tab_text or "").strip()
         if not t:
@@ -103,7 +102,6 @@ class Pipeline:
         for j in self.journals:
             if self.external_id_prefix:
                 j.external_id = f"{self.external_id_prefix}-{re.sub(r'[^A-Za-z0-9_.-]+', '_', j.external_id)}"[:200]
-            j.extra_body = dict(self.extra_body)
         self.issues = parse_issues + validate(self.journals, self.ns)
         if expected_total:
             exp = Decimal(str(expected_total).replace(",", ""))
@@ -265,18 +263,6 @@ class Pipeline:
                 notes.append(j.external_id)
         return f"Posting period {label} = NetSuite period {p['id']} ({s}..{e}), " \
                f"{'open' if not any(i.field == 'posting_period' and 'closed' in i.message for i in self.issues) else 'CLOSED'}."
-
-    def set_requester(self, email: str, field: str = "custbody_journal_req_by") -> str:
-        """Attribute journals to the requester: NetSuite employee matched by the Jira creator's email."""
-        if not self.ns:
-            return "NetSuite not configured."
-        rows = self.ns.employee_by_email(email) if email else []
-        if len(rows) != 1:
-            return f"UNRESOLVED: {len(rows)} NetSuite employee(s) match email {email!r}."
-        self.extra_body[field] = {"id": str(rows[0]["id"])}
-        for j in self.journals:
-            j.extra_body[field] = self.extra_body[field]
-        return f"Requester {rows[0].get('entityid')} (employee {rows[0]['id']}) will be recorded in {field}."
 
     # --- reporting -------------------------------------------------------------
     def summary(self) -> str:

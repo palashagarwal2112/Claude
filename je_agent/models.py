@@ -35,7 +35,6 @@ class Journal:
     raw: dict = field(default_factory=dict)
     names: dict = field(default_factory=dict)
     posting_period: str = ""      # NetSuite accounting period internal ID
-    extra_body: dict = field(default_factory=dict)   # extra payload fields, e.g. custbody_journal_req_by
     resolved: bool = False        # True once every master-data value is matched to a NetSuite internal ID
 
     @property
