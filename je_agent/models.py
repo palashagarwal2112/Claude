@@ -16,6 +16,8 @@ class Line:
     location: str = ""
     entity: str = ""              # "Name Internal ID" (vendor/employee/etc.)
     row: int = 0                  # source row, for error reporting
+    raw: dict = field(default_factory=dict)    # values as written in the workpaper (before master-data resolution)
+    names: dict = field(default_factory=dict)  # NetSuite display names after resolution
 
 
 @dataclass
@@ -30,6 +32,11 @@ class Journal:
     exchange_rate: str = ""
     accounting_book: str = ""     # accounting book internal ID, or "primary"
     lines: list[Line] = field(default_factory=list)
+    raw: dict = field(default_factory=dict)
+    names: dict = field(default_factory=dict)
+    posting_period: str = ""      # NetSuite accounting period internal ID
+    extra_body: dict = field(default_factory=dict)   # extra payload fields, e.g. custbody_journal_req_by
+    resolved: bool = False        # True once every master-data value is matched to a NetSuite internal ID
 
     @property
     def total_debit(self) -> Decimal:
@@ -47,3 +54,4 @@ class Issue:
     severity: str = "error"       # error | warning
     kind: str = "invalid"         # invalid | missing | ambiguous ; missing/ambiguous need a human answer
     field: str = ""
+    src: str = ""                 # "master" for master-data resolution issues (cleared on re-resolve)

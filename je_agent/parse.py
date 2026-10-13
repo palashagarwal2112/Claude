@@ -79,10 +79,9 @@ def parse_date(v) -> date | None:
 
 
 def _id(v) -> str:
-    """'2126 Lizhen Li' -> '2126'; 73.0 -> '73'; 'USD' -> 'USD'."""
+    """Keep the workpaper value as written (names matter for master-data matching); only tidy 73.0 -> '73'."""
     s = str(v).strip()
-    m = re.match(r"^(\d+)(?:\.0+)?(?:\s|$)", s)
-    return m.group(1) if m else s
+    return s[:-2] if re.fullmatch(r"\d+\.0", s) else s
 
 
 def build_journals(rows: list[dict], spec: dict[str, dict]) -> tuple[list[Journal], list[Issue]]:
